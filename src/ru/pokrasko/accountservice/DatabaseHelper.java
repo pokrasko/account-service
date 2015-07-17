@@ -21,9 +21,6 @@ public class DatabaseHelper implements AutoCloseable {
             putStmt = conn.prepareStatement("INSERT INTO Accounts(Id, Value) VALUES(?, 0);");
             updateStmt = conn.prepareStatement("UPDATE Accounts SET Value = '?' WHERE Id = ?;");
 
-            try (PreparedStatement dropStmt = conn.prepareStatement("DROP TABLE IF EXISTS Accounts;")) {
-                dropStmt.executeUpdate();
-            }
             try (PreparedStatement createStmt = conn.prepareStatement("CREATE TABLE IF NOT EXISTS " +
                     "Accounts(Id INT PRIMARY KEY, Value INT) ENGINE=InnoDB;")) {
                 createStmt.executeUpdate();
