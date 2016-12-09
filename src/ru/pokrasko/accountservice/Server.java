@@ -1,5 +1,8 @@
 package ru.pokrasko.accountservice;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.server.UnicastRemoteObject;
@@ -43,35 +46,39 @@ public class Server {
             }
 
             printHelp();
-            while (true) {
-                String line = System.console().readLine();
-                try {
-                    switch (line) {
-                        case "running":
-                            System.out.println("" + service.runningRequests() + " requests" +
-                                    " are running now.");
-                            break;
-                        case "total":
-                            System.out.println("" + service.totalRequests() + " requests" +
-                                    " have been started since the last reset.");
-                            break;
-                        case "reset":
-                            service.resetStats();
-                            System.out.println("Stats have been reset successfully.");
-                            break;
-                        case "help":
-                            printHelp();
-                            break;
-                        default:
-                            System.out.println("Wrong command. Print \"help\" to see" +
-                                    "the list of the commands.");
+            try (BufferedReader in = new BufferedReader(new InputStreamReader(System.in))) {
+                while (true) {
+                    String line = in.readLine();
+                    try {
+                        switch (line) {
+                            case "running":
+                                System.out.println("" + service.runningRequests() + " requests" +
+                                        " are running now.");
+                                break;
+                            case "total":
+                                System.out.println("" + service.totalRequests() + " requests" +
+                                        " have been started since the last reset.");
+                                break;
+                            case "reset":
+                                service.resetStats();
+                                System.out.println("Stats have been reset successfully.");
+                                break;
+                            case "help":
+                                printHelp();
+                                break;
+                            default:
+                                System.out.println("Wrong command. Print \"help\" to see" +
+                                        "the list of the commands.");
+                        }
+                    } catch (Exception e) {
+                        break;
                     }
-                } catch (Exception e) {
-                    break;
                 }
+            } catch (IOException e) {
+                System.err.println("Couldn't read from console (" + e + ")");
             }
         } catch (SQLException e) {
-            System.out.println("SQL Exception: " + e.getMessage());
+            System.err.println("SQL Exception at start (" + e + ")");
         }
     }
 }
