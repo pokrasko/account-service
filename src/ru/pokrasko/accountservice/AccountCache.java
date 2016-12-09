@@ -1,27 +1,45 @@
 package ru.pokrasko.accountservice;
 
 import java.sql.SQLException;
+import java.util.LinkedList;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-class AccountCache extends AbstractCache<Integer, Long> {
+class AccountCache {
+    private static final int MAX_CAPACITY = 65536;
+
+    private int capacity;
+
+    private LinkedList<Integer> list = new LinkedList<>();
+    private Map<Integer, Long> map = new ConcurrentHashMap<>();
+
     private DatabaseHelper helper;
 
-    AccountCache(DatabaseHelper helper) {
-        this.helper = helper;
-    }
-
-    AccountCache(DatabaseHelper helper, int capacity) throws IllegalArgumentException {
-        super(capacity);
-        this.helper = helper;
-    }
-
     AccountCache(DatabaseHelper helper, Map<Integer, Long> initialMap) {
-        super(initialMap);
-        this.helper = helper;
+        this(helper, initialMap, MAX_CAPACITY);
     }
 
-    AccountCache(DatabaseHelper helper, Map<Integer, Long> initialMap, int capacity) throws IllegalArgumentException {
-        super(initialMap, capacity);
+    private AccountCache(DatabaseHelper helper, Map<Integer, Long> initialMap, int capacity) throws IllegalArgumentException {
+        if (capacity <= 0 || capacity > MAX_CAPACITY) {
+            throw new IllegalArgumentException("the cache capacity should be from 1 to 4096 elements");
+        }
+        this.capacity = capacity;
+
+        if (initialMap != null && initialMap.size() <= capacity) {
+            this.map = initialMap;
+            list.addAll(initialMap.keySet());
+        } else {
+            this.map = new ConcurrentHashMap<>();
+            if (initialMap != null) {
+                for (Map.Entry<Integer, Long> entry : initialMap.entrySet()) {
+                    this.map.put(entry.getKey(), entry.getValue());
+                    list.add(entry.getKey());
+                    if (this.map.size() == capacity) {
+                        break;
+                    }
+                }
+            }
+        }
         this.helper = helper;
     }
 
@@ -47,21 +65,11 @@ class AccountCache extends AbstractCache<Integer, Long> {
     private synchronized Integer checkCacheAndUpdate(Integer key, Long value) throws SQLException {
         Integer[] result = new Integer[1];
         checkCache(key, result);
-        helper.update(key, value);
+        helper.put(key, value);
         return result[0];
     }
 
-    @Override
-    public Long get(Integer key) {
-//        boolean isInCache;
-//        synchronized (this) {
-//            isInCache = list.remove(key);
-//            if (isInCache) {
-//                list.addFirst(key);
-//            }
-//        }
-//        return isInCache ? map.get(key) : null;
-
+    Long get(Integer key) {
         boolean isInCache;
         Integer[] keyToRemove = new Integer[1];
         Long[] value = new Long[1];
@@ -71,18 +79,6 @@ class AccountCache extends AbstractCache<Integer, Long> {
             System.err.println("SQL exception while updating cache. " + e);
             return null;
         }
-//        synchronized (this) {
-//            if (!list.remove(key)) {
-//                if (list.size() == capacity) {
-//                    keyToRemove = list.pollLast();
-//                }
-//                list.addFirst(key);
-//                try {
-//                    value = helper.get(key);
-//                } catch (SQLException e) {
-//                }
-//            }
-//        }
 
         if (keyToRemove[0] != null) {
             map.remove(keyToRemove[0]);
@@ -90,28 +86,14 @@ class AccountCache extends AbstractCache<Integer, Long> {
         if (isInCache) {
             return map.get(key);
         } else {
-            map.put(key, value[0]);
+            if (value[0] != null) {
+                map.put(key, value[0]);
+            }
             return value[0];
         }
     }
 
-    @Override
-    public void put(Integer key, Long value) {
-//        Integer keyToRemove = null;
-//        synchronized (this) {
-//            if (list.remove(key)) {
-//                --size;
-//            }
-//            if (size == capacity) {
-//                keyToRemove = list.pollLast();
-//                --size;
-//            }
-//            list.addFirst(key);
-//        }
-//        if (keyToRemove != null) {
-//            map.remove(keyToRemove);
-//        }
-//        map.put(key, value);
+    void put(Integer key, Long value) {
         Integer keyToRemove;
         try {
             keyToRemove = checkCacheAndUpdate(key, value);
