@@ -73,31 +73,30 @@ public class Client {
 
     public static void main(String[] args) throws RemoteException {
         AccountService service;
-        final int host;
+        final String host;
         final int port;
         final int rCount;
         final int wCount;
         final long delta;
         final List<Integer> idList;
 
-        if (args.length != 5 || args[0] == null || args[1] == null || args[2] == null || args[3] == null
-                || args[4] == null) {
+        if (args.length != 6 || args[0] == null || args[1] == null || args[2] == null || args[3] == null
+                || args[4] == null || args[5] == null) {
             usage();
             return;
         }
 
-        final String[] parts = args[0].split(":");
-        idList = parseIntervals(args[4]);
-        if (parts.length != 2 || idList == null) {
+        idList = parseIntervals(args[5]);
+        if (idList == null) {
             usage();
             return;
         }
         try {
-            host = Integer.parseInt(parts[0]);
-            port = Integer.parseInt(parts[1]);
-            rCount = Integer.parseInt(args[1]);
-            wCount = Integer.parseInt(args[2]);
-            delta = Integer.parseInt(args[3]);
+            host = args[0];
+            port = Integer.parseInt(args[1]);
+            rCount = Integer.parseInt(args[2]);
+            wCount = Integer.parseInt(args[3]);
+            delta = Integer.parseInt(args[4]);
         } catch (NumberFormatException e) {
             usage();
             return;
