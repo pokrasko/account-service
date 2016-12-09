@@ -15,7 +15,6 @@ class DatabaseHelper implements AutoCloseable {
     private final Connection conn;
     private final PreparedStatement getStmt;
     private final PreparedStatement putStmt;
-    private final PreparedStatement updateStmt;
 
     DatabaseHelper(String url) throws SQLException {
         try {
@@ -23,9 +22,7 @@ class DatabaseHelper implements AutoCloseable {
             getStmt = conn.prepareStatement("SELECT * FROM " + accountsTable
                     + " WHERE " + idField + " = ?;");
             putStmt = conn.prepareStatement("INSERT INTO " + accountsTable + " (" + idField + ", " + valueField + ")"
-                    + " VALUES(?, 0);");
-            updateStmt = conn.prepareStatement("UPDATE " + accountsTable + " SET " + valueField + " = ?"
-                    + " WHERE " + idField + " = ?;");
+                    + " VALUES(?, ?) ON DUPLICATE KEY UPDATE " + valueField + " =?;");
 
             try (PreparedStatement createStmt = conn.prepareStatement("CREATE TABLE IF NOT EXISTS " + accountsTable
                     + " (" + idField + " INT PRIMARY KEY, " + valueField + " BIGINT) ENGINE=InnoDB;")) {
@@ -38,9 +35,6 @@ class DatabaseHelper implements AutoCloseable {
     }
 
     public void close() throws SQLException {
-        if (updateStmt != null) {
-            updateStmt.close();
-        }
         if (putStmt != null) {
             putStmt.close();
         }
@@ -72,14 +66,10 @@ class DatabaseHelper implements AutoCloseable {
         }
     }
 
-    synchronized void put(Integer id) throws SQLException {
+    synchronized void put(Integer id, Long value) throws SQLException {
         putStmt.setInt(1, id);
+        putStmt.setLong(2, value);
+        putStmt.setLong(3, value);
         putStmt.executeUpdate();
-    }
-
-    synchronized void update(Integer id, Long value) throws SQLException {
-        updateStmt.setInt(2, id);
-        updateStmt.setLong(1, value);
-        updateStmt.executeUpdate();
     }
 }
