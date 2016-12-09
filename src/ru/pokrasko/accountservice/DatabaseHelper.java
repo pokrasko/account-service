@@ -5,7 +5,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 class DatabaseHelper implements AutoCloseable {
-    private final String url;
     private static final String username = "accountservice";
     private static final String password = "1uGF2q5";
 
@@ -19,9 +18,8 @@ class DatabaseHelper implements AutoCloseable {
     private final PreparedStatement updateStmt;
 
     DatabaseHelper(String url) throws SQLException {
-        this.url = url;
         try {
-            conn = DriverManager.getConnection(this.url, username, password);
+            conn = DriverManager.getConnection(url, username, password);
             getStmt = conn.prepareStatement("SELECT * FROM " + accountsTable
                     + " WHERE " + idField + " = ?;");
             putStmt = conn.prepareStatement("INSERT INTO " + accountsTable + " (" + idField + ", " + valueField + ")"
@@ -29,8 +27,8 @@ class DatabaseHelper implements AutoCloseable {
             updateStmt = conn.prepareStatement("UPDATE " + accountsTable + " SET " + valueField + " = ?"
                     + " WHERE " + idField + " = ?;");
 
-            try (PreparedStatement createStmt = conn.prepareStatement("CREATE TABLE IF NOT EXISTS " +
-                    "Accounts(Id INT PRIMARY KEY, Value BIGINT) ENGINE=InnoDB;")) {
+            try (PreparedStatement createStmt = conn.prepareStatement("CREATE TABLE IF NOT EXISTS " + accountsTable
+                    + " (" + idField + " INT PRIMARY KEY, " + valueField + " BIGINT) ENGINE=InnoDB;")) {
                 createStmt.executeUpdate();
             }
         } catch (SQLException e) {
