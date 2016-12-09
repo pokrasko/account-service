@@ -1,28 +1,36 @@
 package ru.pokrasko.accountservice;
 
 import java.sql.*;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.ConcurrentMap;
 
-public class DatabaseHelper implements AutoCloseable {
+class DatabaseHelper implements AutoCloseable {
     private final String url;
-    private final String username = "accountservice";
-    private final String password = "1uGF2q5";
+    private static final String username = "accountservice";
+    private static final String password = "1uGF2q5";
+
+    private static final String accountsTable = "accounts";
+    private static final String idField = "id";
+    private static final String valueField = "value";
 
     private final Connection conn;
+    private final PreparedStatement getStmt;
     private final PreparedStatement putStmt;
     private final PreparedStatement updateStmt;
 
-    public DatabaseHelper(String url) throws SQLException {
+    DatabaseHelper(String url) throws SQLException {
         this.url = url;
         try {
-            conn = DriverManager.getConnection(url, username, password);
-            putStmt = conn.prepareStatement("INSERT INTO Accounts(Id, Value) VALUES(?, 0);");
-            updateStmt = conn.prepareStatement("UPDATE Accounts SET Value = '?' WHERE Id = ?;");
+            conn = DriverManager.getConnection(this.url, username, password);
+            getStmt = conn.prepareStatement("SELECT * FROM " + accountsTable
+                    + " WHERE " + idField + " = ?;");
+            putStmt = conn.prepareStatement("INSERT INTO " + accountsTable + " (" + idField + ", " + valueField + ")"
+                    + " VALUES(?, 0);");
+            updateStmt = conn.prepareStatement("UPDATE " + accountsTable + " SET " + valueField + " = ?"
+                    + " WHERE " + idField + " = ?;");
 
             try (PreparedStatement createStmt = conn.prepareStatement("CREATE TABLE IF NOT EXISTS " +
-                    "Accounts(Id INT PRIMARY KEY, Value INT) ENGINE=InnoDB;")) {
+                    "Accounts(Id INT PRIMARY KEY, Value BIGINT) ENGINE=InnoDB;")) {
                 createStmt.executeUpdate();
             }
         } catch (SQLException e) {
@@ -43,17 +51,27 @@ public class DatabaseHelper implements AutoCloseable {
         }
     }
 
-    synchronized Map<Integer, AtomicLong> read() throws SQLException {
-        Map<Integer, AtomicLong> result = new ConcurrentHashMap<>();
-        try (PreparedStatement readStmt = conn.prepareStatement("SELECT * FROM Accounts")) {
+    synchronized ConcurrentMap<Integer, Long> read() throws SQLException {
+        ConcurrentMap<Integer, Long> result = new ConcurrentHashMap<>();
+        try (PreparedStatement readStmt = conn.prepareStatement("SELECT * FROM " + accountsTable)) {
             ResultSet set = readStmt.executeQuery();
             while (set.next()) {
                 Integer id = set.getInt(1);
-                AtomicLong value = new AtomicLong(set.getLong(2));
+                Long value = set.getLong(2);
                 result.put(id, value);
             }
         }
         return result;
+    }
+
+    synchronized Long get(Integer id) throws SQLException {
+        getStmt.setInt(1, id);
+        ResultSet set = getStmt.executeQuery();
+        if (set.next()) {
+            return set.getLong(1);
+        } else {
+            return null;
+        }
     }
 
     synchronized void put(Integer id) throws SQLException {
@@ -62,8 +80,8 @@ public class DatabaseHelper implements AutoCloseable {
     }
 
     synchronized void update(Integer id, Long value) throws SQLException {
-        updateStmt.setInt(1, id);
-        updateStmt.setLong(2, value);
+        updateStmt.setInt(2, id);
+        updateStmt.setLong(1, value);
         updateStmt.executeUpdate();
     }
 }
