@@ -1,9 +1,8 @@
 package ru.pokrasko.accountservice;
 
-import java.net.MalformedURLException;
-import java.rmi.Naming;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -103,12 +102,10 @@ public class Client {
         }
 
         try {
-            service = (AccountService) Naming.lookup("rmi://" + host + ":" + port + "/accountservice");
+            service = (AccountService) LocateRegistry.getRegistry(host, port)
+                    .lookup(Server.SERVICE_NAME);
         } catch (NotBoundException e) {
             System.err.println("Account service is not bound");
-            return;
-        } catch (MalformedURLException e) {
-            System.err.println("Account service URL is invalid");
             return;
         }
 

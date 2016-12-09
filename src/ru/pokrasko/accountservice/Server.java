@@ -1,13 +1,14 @@
 package ru.pokrasko.accountservice;
 
-import java.net.MalformedURLException;
-import java.rmi.Naming;
 import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
 import java.rmi.server.UnicastRemoteObject;
 import java.sql.SQLException;
 
 public class Server {
-    public static void printHelp() {
+    static final String SERVICE_NAME = "account-service";
+
+    private static void printHelp() {
         System.out.println("Commands:");
         System.out.println("running - the number of requests running at the moment;");
         System.out.println("total - the total number of requests started since the program" +
@@ -31,24 +32,13 @@ public class Server {
             dbUrl = "jdbc:mysql://localhost:3306/" + args[1];
         }
         try (DatabaseHelper helper = new DatabaseHelper(dbUrl)) {
-            AccountService service = new AccountServiceImpl(helper);
-            final String url = "rmi://localhost" + port + "/accountservice";
-
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                try {
-                    Naming.unbind(url);
-                } catch (Exception e) {
-                }
-            }));
+            AccountServiceImpl service = new AccountServiceImpl(helper);
 
             try {
-                UnicastRemoteObject.exportObject(service, port);
-                Naming.rebind(url, service);
+                AccountService serviceStub = (AccountService) UnicastRemoteObject.exportObject(service, 0);
+                LocateRegistry.createRegistry(port).rebind(SERVICE_NAME, serviceStub);
             } catch (RemoteException e) {
-                System.err.println("Cannot export object: " + e.getMessage());
-                return;
-            } catch (MalformedURLException e) {
-                System.err.println("Malformed URL");
+                System.err.println("Cannot export object. " + e);
                 return;
             }
 
