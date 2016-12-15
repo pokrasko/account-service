@@ -15,7 +15,7 @@ public class Server {
         System.out.println("Commands:");
         System.out.println("running - the number of requests running at the moment;");
         System.out.println("total - the total number of requests started since the program" +
-                "beginning or the last command reset;");
+                " beginning or the last command reset;");
         System.out.println("reset - set the total number of requests to 0.");
         System.out.println();
     }
@@ -23,7 +23,7 @@ public class Server {
     public static void main(String[] args) {
         if (args.length < 2 || args.length > 3 || args[0] == null || args[1] == null
                 || args.length == 3 && args[2] == null) {
-            System.err.println("Usage: Server <port> [database port] <database name>");
+            System.err.println("Usage: Server <port> [<dbPort>] <dbName>");
             return;
         }
 

@@ -19,7 +19,8 @@ class AccountCache {
         this(helper, initialMap, MAX_CAPACITY);
     }
 
-    private AccountCache(DatabaseHelper helper, Map<Integer, Long> initialMap, int capacity) throws IllegalArgumentException {
+    private AccountCache(DatabaseHelper helper, Map<Integer, Long> initialMap, int capacity)
+            throws IllegalArgumentException {
         if (capacity <= 0 || capacity > MAX_CAPACITY) {
             throw new IllegalArgumentException("the cache capacity should be from 1 to 4096 elements");
         }
@@ -54,7 +55,8 @@ class AccountCache {
         return isInCache;
     }
 
-    private synchronized boolean checkCacheAndRefresh(Integer key, Integer[] keyToRemove, Long[] value) throws SQLException {
+    private synchronized boolean checkCacheAndRefresh(Integer key, Integer[] keyToRemove, Long[] value)
+            throws SQLException {
         boolean isInCache = checkCache(key, keyToRemove);
         if (!isInCache) {
             value[0] = helper.get(key);
@@ -62,7 +64,8 @@ class AccountCache {
         return isInCache;
     }
 
-    private synchronized Integer checkCacheAndUpdate(Integer key, Long value) throws SQLException {
+    private synchronized Integer checkCacheAndUpdate(Integer key, Long value)
+            throws SQLException {
         Integer[] result = new Integer[1];
         checkCache(key, result);
         helper.put(key, value);

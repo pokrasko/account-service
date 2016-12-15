@@ -19,7 +19,7 @@ class DatabaseHelper implements AutoCloseable {
     DatabaseHelper(String url) throws SQLException {
         try {
             conn = DriverManager.getConnection(url, username, password);
-            getStmt = conn.prepareStatement("SELECT * FROM " + accountsTable
+            getStmt = conn.prepareStatement("SELECT " + valueField + " FROM " + accountsTable
                     + " WHERE " + idField + " = ?;");
             putStmt = conn.prepareStatement("INSERT INTO " + accountsTable + " (" + idField + ", " + valueField + ")"
                     + " VALUES(?, ?) ON DUPLICATE KEY UPDATE " + valueField + " =?;");

@@ -21,9 +21,8 @@ public interface AccountService extends Remote {
      * @param id balance identifier
      * @param value positive or negative value, which must be added to current balance
      * @throws RemoteException
-     * @throws SQLException
      */
-    void addAmount(Integer id, Long value) throws RemoteException, SQLException;
+    void addAmount(Integer id, Long value) throws RemoteException;
 
     /**
      * Gets stats for running requests.

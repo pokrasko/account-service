@@ -5,10 +5,13 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Client {
     private static ExecutorService getService;
     private static ExecutorService setService;
+    private static AtomicInteger finishedGetRequests = new AtomicInteger();
+    private static AtomicInteger finishedSetRequests = new AtomicInteger();
 
     private static List<Integer> parseIntervals(String s) {
         List<Integer> result = new ArrayList<>();
@@ -46,11 +49,12 @@ public class Client {
     }
 
     private static void usage() {
-        System.err.println("Usage: Client <host>:<port> <rCount> <wCount> <value> <idList>");
+        System.err.println("Usage: Client <host>:<port> <rCount> <wCount> <value> <idList> <loop-counter>");
     }
 
-    private static <T> T tryPoll(ExecutorCompletionService<T> service) throws ExecutionException, InterruptedException {
-        Future<T> result = service.poll();
+    private static <T> T tryPoll(ExecutorCompletionService<T> service, Long microSeconds)
+            throws ExecutionException, InterruptedException {
+        Future<T> result = service.poll(microSeconds, TimeUnit.MICROSECONDS);
         if (result == null) {
             return null;
         }
@@ -78,9 +82,10 @@ public class Client {
         final int wCount;
         final long delta;
         final List<Integer> idList;
+        final int loopCounter;
 
-        if (args.length != 6 || args[0] == null || args[1] == null || args[2] == null || args[3] == null
-                || args[4] == null || args[5] == null) {
+        if (args.length != 7 || args[0] == null || args[1] == null || args[2] == null || args[3] == null
+                || args[4] == null || args[5] == null || args[6] == null) {
             usage();
             return;
         }
@@ -96,6 +101,10 @@ public class Client {
             rCount = Integer.parseInt(args[2]);
             wCount = Integer.parseInt(args[3]);
             delta = Integer.parseInt(args[4]);
+            loopCounter = Integer.parseInt(args[6]);
+            if (loopCounter <= 0 || loopCounter > 1024576) {
+                throw new IllegalArgumentException();
+            }
         } catch (NumberFormatException e) {
             usage();
             return;
@@ -105,7 +114,7 @@ public class Client {
             service = (AccountService) LocateRegistry.getRegistry(host, port)
                     .lookup(Server.SERVICE_NAME);
         } catch (NotBoundException e) {
-            System.err.println("Account service is not bound");
+            System.err.println("Account service is not bound (" + e + ")");
             return;
         }
 
@@ -118,30 +127,53 @@ public class Client {
         int size = idList.size();
         Random random = new Random();
 
-        for (; ; ) {
+        for (int i = 0; i < loopCounter; i++) {
             getResults.submit(() -> {
                 int id = idList.get(random.nextInt(size));
                 return new AbstractMap.SimpleEntry<>(id, service.getAmount(id));
             });
             try {
-                while ((getResult = tryPoll(getResults)) != null) {
+                while ((getResult = tryPoll(getResults, 5L)) != null) {
+                    finishedGetRequests.getAndIncrement();
                     System.out.println("Reader: value by id " + getResult.getKey() + " is " + getResult.getValue());
                 }
             } catch (Exception e) {
+                System.err.println("Caught exception: " + e);
                 break;
             }
             setResults.submit(() -> {
                 int id = idList.get(random.nextInt(size));
                 service.addAmount(id, delta);
-                return null;
+                return id;
             });
             try {
-                while ((setResult = tryPoll(setResults)) != null) {
+                while ((setResult = tryPoll(setResults, 25L)) != null) {
+                    finishedSetRequests.getAndIncrement();
                     System.out.println("Writer: value by id " + setResult + " is added by " + delta);
                 }
             } catch (Exception e) {
+                System.err.println("Caught exception: " + e);
                 break;
             }
         }
+
+        while (finishedGetRequests.get() < loopCounter || finishedSetRequests.get() < loopCounter) {
+            try {
+                while ((getResult = tryPoll(getResults, 5L)) != null) {
+                    finishedGetRequests.getAndIncrement();
+                    System.out.println("Reader: value by id " + getResult.getKey() + " is " + getResult.getValue());
+                }
+                while ((setResult = tryPoll(setResults, 25L)) != null) {
+                    finishedSetRequests.getAndIncrement();
+                    System.out.println("Writer: value by id " + setResult + " is added by " + delta);
+                }
+            } catch (Exception e) {
+                System.err.println("Caught exception: " + e);
+                break;
+            }
+        }
+
+        getService.shutdown();
+        setService.shutdown();
     }
 }
