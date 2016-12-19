@@ -49,7 +49,7 @@ public class Client {
     }
 
     private static void usage() {
-        System.err.println("Usage: Client <host>:<port> <rCount> <wCount> <value> <idList> <loop-counter>");
+        System.err.println("Usage: Client <host>:<port> <rCount> <wCount> <value> <idList> [<loop-counter>]");
     }
 
     private static <T> T tryPoll(ExecutorCompletionService<T> service, Long microSeconds)
@@ -84,8 +84,8 @@ public class Client {
         final List<Integer> idList;
         final int loopCounter;
 
-        if (args.length != 7 || args[0] == null || args[1] == null || args[2] == null || args[3] == null
-                || args[4] == null || args[5] == null || args[6] == null) {
+        if (args.length < 6 || args.length > 7 || args[0] == null || args[1] == null || args[2] == null
+                || args[3] == null || args[4] == null || args[5] == null || args.length == 7 && args[6] == null) {
             usage();
             return;
         }
@@ -101,14 +101,26 @@ public class Client {
             rCount = Integer.parseInt(args[2]);
             wCount = Integer.parseInt(args[3]);
             delta = Integer.parseInt(args[4]);
-            loopCounter = Integer.parseInt(args[6]);
-            if (loopCounter <= 0 || loopCounter > 1024576) {
-                throw new IllegalArgumentException();
+            if (args.length == 7) {
+                loopCounter = Integer.parseInt(args[6]);
+                if (loopCounter <= 0) {
+                    throw new IllegalArgumentException();
+                }
+            } else {
+                loopCounter = -1;
             }
         } catch (NumberFormatException e) {
             usage();
             return;
         }
+
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            @Override
+            public void run() {
+                getService.shutdown();
+                setService.shutdown();
+            }
+        });
 
         try {
             service = (AccountService) LocateRegistry.getRegistry(host, port)
@@ -127,7 +139,8 @@ public class Client {
         int size = idList.size();
         Random random = new Random();
 
-        for (int i = 0; i < loopCounter; i++) {
+        int i = 0;
+        while (true) {
             getResults.submit(() -> {
                 int id = idList.get(random.nextInt(size));
                 return new AbstractMap.SimpleEntry<>(id, service.getAmount(id));
@@ -153,6 +166,10 @@ public class Client {
                 }
             } catch (Exception e) {
                 System.err.println("Caught exception: " + e);
+                break;
+            }
+
+            if (loopCounter > 0 && ++i == loopCounter) {
                 break;
             }
         }
